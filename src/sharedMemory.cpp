@@ -73,7 +73,7 @@ bool SharedMemoryManager::connectSharedMemory(){
             "SharedMemory"
         );
 
-        auto result = segment->find<VehicleStateSharedMemoryPacket>("Telemetry");
+        auto result = segment->find<VehicleStateSharedMemoryPacket>("VehicleState");
         if (result.first == nullptr) {
             return false;
         }

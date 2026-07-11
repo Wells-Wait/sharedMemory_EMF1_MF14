@@ -9,6 +9,7 @@
 #include <boost/interprocess/sync/sharable_lock.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include "MF26/v2/vehicle.pb.h"
+#include "MF26/v2/control.pb.h"
 enum class SharedMemoryManagerMode{
     VCU,
     SCREEN,
@@ -35,14 +36,34 @@ struct VehicleStateSharedMemoryPacket {
 };
 struct VehicleStateSharedMemory{
     uint8_t writerCounterLast;
-    uint8_t readerCounterVCULast;
-    uint8_t readerCounterScreen;
+    uint8_t readerCounterServerLast;
+    uint8_t readerCounterScreenLast;
     VehicleStateSharedMemoryPacket* sharedMemory;
     MF26::v2::VehicleState *vehicleState;
 
 };
 
 // VCU shared memory stuff
+struct VCUCommandSharedMemoryPacket {
+
+    std::atomic<uint8_t> writerCounter=0;
+    std::atomic<uint8_t> readerCounterServer=0;
+    std::atomic<uint8_t> readerCounterScreen=0;
+
+    
+    ProtoPacket packetA;
+    ProtoPacket packetB;
+};
+struct VCUCommandSharedMemory{
+    uint8_t writerCounterLast;
+    uint8_t readerCounterVCULast;
+    uint8_t readerCounterScreenLast;
+    VCUCommandSharedMemoryPacket* sharedMemory;
+    MF26::v2::VCUCommand *vcuComand;
+
+};
+
+
 
 class SharedMemoryManager
 {
@@ -58,8 +79,11 @@ private:
 
     //VCU shared memory
 
+    VCUCommandSharedMemory vcuCommandSharedMemory;
+
     bool makeSharedMemory();
     bool connectSharedMemory();
+
 
     bool getVehicleState();
     bool getVCU();
@@ -69,6 +93,7 @@ private:
 
 public:
     SharedMemoryManager(MF26::v2::VehicleState *ptr_vehicleState,SharedMemoryManagerMode sharedMemoryManagerMode);
+    bool setData();
     bool getData();
 
 };

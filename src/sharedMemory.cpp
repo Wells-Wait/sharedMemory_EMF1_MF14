@@ -121,7 +121,7 @@ bool SharedMemoryManager::setData(){
     }else{
         packetPtr = &vehicleStateSharedMemory.sharedMemory->packetB;
     }
-    if(vehicleStateSharedMemory.sharedMemory->readerCounterVCU.load(std::memory_order_acquire)%2 == 0){
+    if(vehicleStateSharedMemory.sharedMemory->readerCounterVCU.load(std::memory_order_acquire)%2 == 0 && vehicleStateSharedMemory.sharedMemory->readerCounterScreen.load(std::memory_order_acquire)%2 == 0){
     packetPtr->dataSize = size;
     std::memcpy(packetPtr->buffer, serialized.data(), size);
     
@@ -173,7 +173,7 @@ bool SharedMemoryManager::getVehicleState(){
             case SharedMemoryManagerMode::SCREEN:
                 old_val=vehicleStateSharedMemory.sharedMemory->readerCounterScreen.fetch_add(1, std::memory_order_release);
                 if(old_val % 2 !=0){
-                    std::cout << "VCU Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
+                    std::cout << "SCREEN Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
                     vehicleStateSharedMemory.sharedMemory->readerCounterScreen.store(1, std::memory_order_release);
                 }
     

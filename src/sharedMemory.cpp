@@ -79,6 +79,18 @@ bool SharedMemoryManager::connectSharedMemory(){
         }
 
         this->vehicleStateSharedMemory.sharedMemory = result.first;
+
+        auto result2 = segment->find<VCUCommandSharedMemoryPacket>("VehicleState");
+        if (result2.first == nullptr) {
+            return false;
+        }
+
+        this->vcuCommandSharedMemory.sharedMemory = result2.first;
+
+
+
+
+
         return true;
 
     }

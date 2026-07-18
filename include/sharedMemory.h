@@ -59,7 +59,7 @@ struct VCUCommandSharedMemory{
     uint8_t readerCounterVCULast;
     uint8_t readerCounterScreenLast;
     VCUCommandSharedMemoryPacket* sharedMemory;
-    MF26::v2::VCUCommand *vcuComand;
+    MF26::v2::VCUCommand *vcuCommand;
 
 };
 
@@ -84,6 +84,9 @@ private:
     bool makeSharedMemory();
     bool connectSharedMemory();
 
+    bool setVehicleState();
+    bool setVCU();
+
 
     bool getVehicleState();
     bool getVCU();
@@ -92,7 +95,7 @@ private:
  
 
 public:
-    SharedMemoryManager(MF26::v2::VehicleState *ptr_vehicleState,SharedMemoryManagerMode sharedMemoryManagerMode);
+    SharedMemoryManager(MF26::v2::VehicleState *ptr_vehicleState,MF26::v2::VCUCommand *ptr_vcuCommand, SharedMemoryManagerMode sharedMemoryManagerMode);
     bool setData();
     bool getData();
 

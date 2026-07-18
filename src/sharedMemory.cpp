@@ -3,10 +3,10 @@
 
 
 
-SharedMemoryManager::SharedMemoryManager(MF26::v2::VehicleState *ptr_vehicleState,SharedMemoryManagerMode sharedMemoryManagerMode){
+SharedMemoryManager::SharedMemoryManager(MF26::v2::VehicleState *ptr_vehicleState, MF26::v2::VCUCommand *ptr_vcuCommand ,SharedMemoryManagerMode sharedMemoryManagerMode){
         this->mode = sharedMemoryManagerMode;
         this->vehicleStateSharedMemory.vehicleState = ptr_vehicleState;
-
+        this->vcuCommandSharedMemory.vcuCommand = ptr_vcuCommand;
                 //keep seeing if shared memory is there yet
 
         if(mode==SharedMemoryManagerMode::SERVER){
@@ -90,11 +90,29 @@ bool SharedMemoryManager::connectSharedMemory(){
 
 
 bool SharedMemoryManager::setData(){
+            switch(mode) {
+
+            case SharedMemoryManagerMode::SERVER:
+                setVehicleState();
+
+            break;
+            case SharedMemoryManagerMode::VCU:
+                setVCU();
+    
+            break;
+            case SharedMemoryManagerMode::SCREEN:
+                return false;
+    
+            break;
+
     
 
+        }
+    
+    }
 
     
-
+bool SharedMemoryManager::setVehicleState(){
     
 
      // Serialize to a string
@@ -128,6 +146,48 @@ bool SharedMemoryManager::setData(){
 
     
     vehicleStateSharedMemory.sharedMemory->writerCounter.fetch_add(1, std::memory_order_release);
+    // Lock automatically releases here when function returns
+    return true;
+    }
+    
+    
+
+
+}
+bool SharedMemoryManager::setVCU(){
+    
+
+     // Serialize to a string
+    std::string serialized;
+    if (!vcuCommandSharedMemory.vcuCommand->SerializeToString(&serialized)) {
+        std::cerr << "Failed to serialize EV message!\n";
+        return false;
+    }
+
+    
+    
+    size_t size=serialized.size();
+    
+    if (size > 1024){
+        std::cout << "too big" << std::endl;
+        return false;
+    } // Basic bounds check
+
+    
+    uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
+    ProtoPacket* packetPtr = nullptr;
+    if (writerCounter%2 == 0){
+        packetPtr = &vcuCommandSharedMemory.sharedMemory->packetA;
+    }else{
+        packetPtr = &vcuCommandSharedMemory.sharedMemory->packetB;
+    }
+    if(vcuCommandSharedMemory.sharedMemory->readerCounterServer.load(std::memory_order_acquire)%2 == 0 && vcuCommandSharedMemory.sharedMemory->readerCounterScreen.load(std::memory_order_acquire)%2 == 0){
+    packetPtr->dataSize = size;
+    std::memcpy(packetPtr->buffer, serialized.data(), size);
+    
+
+    
+    vcuCommandSharedMemory.sharedMemory->writerCounter.fetch_add(1, std::memory_order_release);
     // Lock automatically releases here when function returns
     return true;
     }
@@ -253,91 +313,90 @@ bool SharedMemoryManager::getVehicleState(){
 
 
 }
-bool SharedMemoryManager::getVCU(){return true;}
 
-// bool SharedMemoryManager::getVCU(){
+bool SharedMemoryManager::getVCU(){
     
-//     bool state = false;
+    bool state = false;
     
-//     //check if new data this also lets writer have room to update
-//     uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
+    //check if new data this also lets writer have room to update
+    uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
 
-//     if (writerCounter != this->vcuCommandSharedMemory.writerCounterLast){
+    if (writerCounter != this->vcuCommandSharedMemory.writerCounterLast){
 
-//         //lock writer
-//         uint8_t old_val;
-//         switch(mode) {
+        //lock writer
+        uint8_t old_val;
+        switch(mode) {
 
-//             case SharedMemoryManagerMode::SERVER:
-//                 old_val=vcuCommandSharedMemory.sharedMemory->readerCounterServer.fetch_add(1, std::memory_order_release);
-//                 if(old_val % 2 !=0){
-//                     std::cout << "VCU Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
-//                     vcuCommandSharedMemory.sharedMemory->readerCounterServer.store(1, std::memory_order_release);
-//                 }
-//             break;
-//             case SharedMemoryManagerMode::SCREEN:
-//                 old_val=vcuCommandSharedMemory.sharedMemory->readerCounterScreen.fetch_add(1, std::memory_order_release);
-//                 if(old_val % 2 !=0){
-//                     std::cout << "VCU Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
-//                     vcuCommandSharedMemory.sharedMemory->readerCounterScreen.store(1, std::memory_order_release);
-//                 }
+            case SharedMemoryManagerMode::SERVER:
+                old_val=vcuCommandSharedMemory.sharedMemory->readerCounterServer.fetch_add(1, std::memory_order_release);
+                if(old_val % 2 !=0){
+                    std::cout << "VCU Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
+                    vcuCommandSharedMemory.sharedMemory->readerCounterServer.store(1, std::memory_order_release);
+                }
+            break;
+            case SharedMemoryManagerMode::SCREEN:
+                old_val=vcuCommandSharedMemory.sharedMemory->readerCounterScreen.fetch_add(1, std::memory_order_release);
+                if(old_val % 2 !=0){
+                    std::cout << "VCU Shared memory counter Error resetting and reading counter set to 1"<< std::endl;
+                    vcuCommandSharedMemory.sharedMemory->readerCounterScreen.store(1, std::memory_order_release);
+                }
     
-//             break;
+            break;
 
     
 
-//         }
+        }
 
 
 
 
 
-//         //Check to make sure writer has not moved if it has this will make sure nothing breaks
-//         uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
+        //Check to make sure writer has not moved if it has this will make sure nothing breaks
+        uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
 
-//         this->vcuCommandSharedMemory.writerCounterLast = writerCounter;//update last writer as this is going to be the writer counter for the read
+        this->vcuCommandSharedMemory.writerCounterLast = writerCounter;//update last writer as this is going to be the writer counter for the read
          
-//         //select memory packet
-//         ProtoPacket* packetPtr = nullptr;
-//         if (vcuCommandSharedMemory.sharedMemory->writerCounter%2 == 0){
-//             //even means writer is on or will be on A
+        //select memory packet
+        ProtoPacket* packetPtr = nullptr;
+        if (vcuCommandSharedMemory.sharedMemory->writerCounter%2 == 0){
+            //even means writer is on or will be on A
             
-//             packetPtr = &vcuCommandSharedMemory.sharedMemory->packetB;
+            packetPtr = &vcuCommandSharedMemory.sharedMemory->packetB;
 
-//         }else{
-//             //odd means writer is on or will be on B
+        }else{
+            //odd means writer is on or will be on B
 
-//             packetPtr = &vcuCommandSharedMemory.sharedMemory->packetA;
-//         }
+            packetPtr = &vcuCommandSharedMemory.sharedMemory->packetA;
+        }
         
 
         
-//         //exstract the data
-//         if (packetPtr->dataSize > 0) {
-//             if (this->vcuCommandSharedMemory.vcuComand->ParseFromArray(packetPtr->buffer, packetPtr->dataSize)) {
-//                 //std::cout << "Inverter Temp: "<< this->vehicleState->ev().inverter().invertertemp()<< std::endl;
-//                 state=true;
-//             } else {
-//                     std::cout << "Failed to parse protobuf message."
-//                             << std::endl;
-//                     state=false;     
-//             }
-//         }
+        //exstract the data
+        if (packetPtr->dataSize > 0) {
+            if (this->vcuCommandSharedMemory.vcuCommand->ParseFromArray(packetPtr->buffer, packetPtr->dataSize)) {
+                //std::cout << "Inverter Temp: "<< this->vehicleState->ev().inverter().invertertemp()<< std::endl;
+                state=true;
+            } else {
+                    std::cout << "Failed to parse protobuf message."
+                            << std::endl;
+                    state=false;     
+            }
+        }
        
-//         //set to not reading(even number)
-//         switch(mode) {
+        //set to not reading(even number)
+        switch(mode) {
 
-//             case SharedMemoryManagerMode::SERVER:
-//                 vcuCommandSharedMemory.sharedMemory->readerCounterServer.fetch_add(1, std::memory_order_release);
-//             break;
-//             case SharedMemoryManagerMode::SCREEN:
-//                 vcuCommandSharedMemory.sharedMemory->readerCounterScreen.fetch_add(1, std::memory_order_release);
+            case SharedMemoryManagerMode::SERVER:
+                vcuCommandSharedMemory.sharedMemory->readerCounterServer.fetch_add(1, std::memory_order_release);
+            break;
+            case SharedMemoryManagerMode::SCREEN:
+                vcuCommandSharedMemory.sharedMemory->readerCounterScreen.fetch_add(1, std::memory_order_release);
     
-//             break;
+            break;
 
     
 
-//         }
+        }
         
         
         
@@ -345,15 +404,15 @@ bool SharedMemoryManager::getVCU(){return true;}
         
         
     
-//         //std::cout << "update reader status finsished"<< std::endl;
+        //std::cout << "update reader status finsished"<< std::endl;
         
-//     }else{
-//     //std::cout << "Data has not changed"<< std::endl;
-//     return false;
+    }else{
+    //std::cout << "Data has not changed"<< std::endl;
+    return false;
     
-//     }
-//     //make even done reading
-//     return state;
+    }
+    //make even done reading
+    return state;
 
   
-// }
+}

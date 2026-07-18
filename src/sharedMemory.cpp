@@ -90,14 +90,17 @@ bool SharedMemoryManager::connectSharedMemory(){
 
 
 bool SharedMemoryManager::setData(){
+    std::cerr << "a\n";
             switch(mode) {
 
             case SharedMemoryManagerMode::SERVER:
-                setVehicleState();
+                return setVehicleState();
 
             break;
             case SharedMemoryManagerMode::VCU:
-                setVCU();
+                std::cerr << "b\n";
+                return setVCU();
+                std::cerr << "c\n";
     
             break;
             case SharedMemoryManagerMode::SCREEN:
@@ -108,6 +111,7 @@ bool SharedMemoryManager::setData(){
     
 
         }
+        std::cerr << "d\n";
     
     }
 
@@ -149,6 +153,7 @@ bool SharedMemoryManager::setVehicleState(){
     // Lock automatically releases here when function returns
     return true;
     }
+    return false;
     
     
 
@@ -160,12 +165,12 @@ bool SharedMemoryManager::setVCU(){
      // Serialize to a string
     std::string serialized;
     if (!vcuCommandSharedMemory.vcuCommand->SerializeToString(&serialized)) {
-        std::cerr << "Failed to serialize EV message!\n";
+        std::cerr << "Failed to serialize VCU message!\n";
         return false;
     }
 
     
-    
+    std::cerr << "1\n";
     size_t size=serialized.size();
     
     if (size > 1024){
@@ -173,7 +178,7 @@ bool SharedMemoryManager::setVCU(){
         return false;
     } // Basic bounds check
 
-    
+    std::cerr << "2\n";
     uint8_t writerCounter = vcuCommandSharedMemory.sharedMemory->writerCounter.load(std::memory_order_acquire);
     ProtoPacket* packetPtr = nullptr;
     if (writerCounter%2 == 0){
@@ -181,9 +186,11 @@ bool SharedMemoryManager::setVCU(){
     }else{
         packetPtr = &vcuCommandSharedMemory.sharedMemory->packetB;
     }
+    std::cerr << "3\n";
     if(vcuCommandSharedMemory.sharedMemory->readerCounterServer.load(std::memory_order_acquire)%2 == 0 && vcuCommandSharedMemory.sharedMemory->readerCounterScreen.load(std::memory_order_acquire)%2 == 0){
     packetPtr->dataSize = size;
     std::memcpy(packetPtr->buffer, serialized.data(), size);
+    std::cerr << "4\n";
     
 
     
@@ -191,6 +198,8 @@ bool SharedMemoryManager::setVCU(){
     // Lock automatically releases here when function returns
     return true;
     }
+    std::cerr << "5\n";
+    return false;
     
     
 

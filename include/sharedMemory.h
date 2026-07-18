@@ -36,7 +36,7 @@ struct VehicleStateSharedMemoryPacket {
 };
 struct VehicleStateSharedMemory{
     uint8_t writerCounterLast;
-    uint8_t readerCounterServerLast;
+    uint8_t readerCounterVCULast;
     uint8_t readerCounterScreenLast;
     VehicleStateSharedMemoryPacket* sharedMemory;
     MF26::v2::VehicleState *vehicleState;
@@ -56,7 +56,7 @@ struct VCUCommandSharedMemoryPacket {
 };
 struct VCUCommandSharedMemory{
     uint8_t writerCounterLast;
-    uint8_t readerCounterVCULast;
+    uint8_t readerCounterServerLast;
     uint8_t readerCounterScreenLast;
     VCUCommandSharedMemoryPacket* sharedMemory;
     MF26::v2::VCUCommand *vcuCommand;
